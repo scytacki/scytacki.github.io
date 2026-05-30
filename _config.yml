@@ -1,0 +1,19 @@
+title: scytacki — reference notes
+description: Reference notes on web development, accessibility, and related topics by Scott Cytacki
+author:
+  name: Scott Cytacki
+url: https://scytacki.github.io
+theme: minima
+
+plugins:
+  - jekyll-seo-tag
+  - jekyll-sitemap
+
+minima:
+  date_format: "%Y-%m-%d"
+
+exclude:
+  - README.md
+  - Gemfile
+  - Gemfile.lock
+  - vendor
