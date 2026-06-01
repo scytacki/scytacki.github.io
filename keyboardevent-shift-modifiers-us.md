@@ -1,156 +1,150 @@
 ---
 layout: page
 title: "KeyboardEvent.key with Shift + modifiers across platforms (US keyboards)"
-description: "How event.key behaves when Shift is combined with Cmd/Ctrl/Alt across macOS, Windows, and ChromeOS — and why character-based shortcut matching breaks for punctuation."
+description: "How event.key behaves when Shift is combined with Cmd/Ctrl/Alt across macOS, Windows, and ChromeOS, on US keyboards."
 permalink: /keyboardevent-shift-modifiers-us/
 ---
 
-A reference for how `event.key` behaves when **Shift is combined with a control/command/alt modifier**, and why this makes "bind a shortcut to the character that's actually typed" unreliable across platforms. Relevant to keyboard-shortcut libraries like [tinykeys](https://github.com/jamiebuilds/tinykeys), which can match against `event.key` or `event.code`.
+A reference for how `event.key` behaves when **Shift is combined with a control/command/alt modifier** across platforms and browsers.
+
+## Summary of inconsistent `event.key` values
+
+Chrome 148 on MacOS `Ctrl+Shift+[key]`:
+- the shifted character for letters.
+- the unshifted character for symbols and digits.
+- **except** `2`, `6`, `-`, `[`, `]`, and `\` report their shifted character.
+
+Chrome 148 on MacOS `Cmd+Shift+[key]`: the unshifted character.
+
+Safari and Firefox on MacOS:
+- `Ctrl+Shift+[key]` reports the shifted character
+- `Cmd+Shift+[key]` reports the unshifted character
+
+Chrome on Windows and ChromeOS always reports the shifted character.
 
 ## Scope & assumptions
 
 - **US keyboard layout only.** Other layouts reach these characters differently and will not match this table.
 - Platforms tested: **macOS**, **Windows**, **ChromeOS (Chromebook)**.
-- Assumed **Chromium-based browser** (Chrome/Edge). Firefox/Safari may differ; note separately if tested.
+- Assumed **Chromium-based browser** (Chrome/Edge), except where a table says otherwise. Firefox and Safari do differ for `Ctrl+Shift` — see the cross-browser `.` table below.
+- MacOS Chrome version 148 – the behavior on MacOS has changed in the past and will likely changed in the future.
 - **Linux is not a column.** Common desktop Linux (Chromium/X11/Wayland) is expected to track the **ChromeOS** column; verify if it matters to you.
 - `event.code` is **not** in the table because it is layout- and modifier-independent: the physical key here is always `Slash` (for `/`), `Digit1`, `KeyA`, etc., on every platform.
+- The keys pressed column uses the modifier key names from [UI Events Key spec](https://www.w3.org/TR/uievents-key/#keys-modifier). This means that Mac `Option` is listed as `Alt`, and Mac `Cmd` is listed as `Meta`.
 
-## Where key definitions appear
-
-A shortcut definition can show up in three distinct places. They may share a string or differ in format; the guidance below refers to these terms.
-
-- **Canonical form** — the binding's representation in source, in stored config or user preferences, and in the runtime matcher (after parsing). The matching guidance — `event.code` vs `event.key`, per-platform tables — is about what this form contains.
-- **User-facing form** — how the binding is presented: the visible label in docs/menus/tooltips, and the `aria-keyshortcuts` attribute exposed to assistive tech. Derived from the Canonical form, with two renderings — platform-styled for visual display, W3C-fixed format for ARIA.
-- **Customization input** — how a user (or an author via a UI) supplies a new binding: pressing the combination (recommended — the captured event lands in Canonical form directly), or typing it (most naturally matching the User-facing form, then parsed into Canonical form).
-
-## The data — `/` key (US: `/` unshifted, `?` shifted)
+## Chrome cross platform `/` key
 
 `event.key` for different modifiers and platforms. All tested on Chrome. The Windows key was used for Meta. 
 
-| Keys pressed                   | macOS | Windows | ChromeOS |
-| ------------------------------ | ----- | ------- | -------- |
-| `/`                            | `/`   | `/`     | `/`      |
-| `Shift` + `/`                  | `?`   | `?`     | `?`      |
-| `Ctrl` + `Shift` + `/`         | `/`   | `?`     | `?`      |
-| `Alt`/`Option` + `Shift` + `/` | `¿`   | `?`     | `?`      |
-| `Cmd`/`Meta` + `Shift` + `/`   | `/`   | `?`     | n/a      |
+| Keys pressed   | macOS | Windows | ChromeOS |
+| -------------- | ----- | ------- | -------- |
+| `/`            | `/`   | `/`     | `/`      |
+| `Shift+/`      | `?`   | `?`     | `?`      |
+| `Ctrl+Shift+/` | `/`†  | `?`     | `?`      |
+| `Alt+Shift+/`  | `¿`‡  | `?`     | `?`      |
+| `Meta+Shift+/` | `/`†  | `?`     | n/a      |
 
-> Note the difference on macOS when a modifier is combined with shift.  Holding **either** `Cmd` or `Ctrl` with `Shift+/` reports the **unshifted** `"/"`, not `"?"`. The `Option+Shift+/` `event.key` actually is the character that is typed while this is different from the other platforms at least we can see which character would be typed.
+### † Non glyph modifier combined with Shift
+On macOS holding **either** `Meta(Cmd)` or `Ctrl` with `Shift+/` reports the **unshifted** `/`. 
 
-## Contrast — digit and letter keys
+### ‡ Glyph modifier combined with Shift
+On a Mac the `Alt(Option)+Shift+/` actually types a character. Mac's `Option` is like the AltGraph modifier on other platforms. So the `event.key` of `Alt(Option)+Shift+/` matches what is typed.
 
-To show that the suppression bites **punctuation** but not letters:
+> Note: this MacOS behavior is **not consistent** across all symbols and digits. See below.
 
-`event.key` for different modifiers and platforms. All tested on Chrome. The Windows key was used for Meta. 
+## MacOS cross browser `.` key
 
-| Keys pressed                   | macOS | Windows  | ChromeOS |
-| ------------------------------ | ----- | -------- | -------- |
-| `Shift` + `1` (→ `!`)          | `!`   | `!`      | `!`      |
-| `Ctrl` + `Shift` + `1`         | `1`   | `!`      | `!`      |
-| `Cmd`/`Meta` + `Shift` + `1`   | `1`   | no event | n/a      |
-| `Shift` + `a` (→ `A`)          | `A`   | `A`      | `A`      |
-| `Ctrl` + `Shift` + `a`         | `A`   | `A`      | `A`      |
-| `Cmd`/`Meta` + `Shift` + `a`   | `a`   | no event | n/a      |
+`event.key` for the `.` key with different browsers. The `.` key is used because `Meta(Cmd)+shift+/` brings up help in the browsers and in some cases blocks the browser from receiving the event.
 
-> Note on windows the Windows key is reported as the Meta modifier. However `Windows+Shift+[digit]` is captured by Windows to do its own shortcuts. `Windows+Shift+a` doesn't fire an event or do anything in Windows that I could see.
+| Keys pressed     | Chrome | Firefox | Safari |
+| ---------------- | ------ | ------- | ------ |
+| `.`              | `.`    | `.`     | `.`    |
+| `Shift+.`        | `>`    | `>`     | `>`    |
+| `Ctrl+Shift+.`   | `.`†   | `>`‡    | `>`‡   |
+| `Meta+Shift+.`   | `.`†   | `.`‡    | `.`‡   |
+| `Alt+Shift+.`    | `˘`    | `˘`     | `˘`    |
 
-> Note the difference on MacOS with `modifier+shift+1`. It reports `1` for the `event.key` whereas other platforms report `!`. 
+### † Chrome reports base character for `.` 
 
-**Why letters don't break shortcut matching:** the base (`a`) and shifted (`A`) forms differ only by **case**, and matchers like tinykeys compare case-insensitively — so a binding for `a` matches whether `event.key` comes back `"a"` or `"A"`.
+On Chrome `Meta(Cmd)+Shift` and `Ctrl+Shift` reports the base character. 
 
-## Discussion
+> Note this is not consistent across all symbols. For example `Ctrl+Shift+[` will report the shifted character `{`.
 
-### The original problem
+### ‡ Firefox and Safari difference between `Meta(Cmd)` and `Ctrl`
+On Firefox and Safari `Ctrl+Shift` always has an `event.key` of the shifted character. While `Meta(Cmd)+Shift` has the an `event.key` of the base character.
 
-Product requirement: a hotkey should follow **the character that would be typed** (e.g. `?`), not a physical key position. The intuition is that `event.key` already resolves layout + Shift, so matching on `event.key === "?"` should "just work." In isolation it works, but with modifier keys it no longer works on macOS.
+## Digit and letter keys
 
-### The MacOS problem
+To show that the shift suppression bites **some digits** but not letters. Here is the `event.key` for different modifiers and platforms. All tested on Chrome. The Windows key was used for Meta. 
 
-**Cmd/Ctrl *suppress* Shift on macOS** When a command-type modifier is held, macOS resolves the event against the key's **base** character, so `Cmd+Shift+/` and `Ctrl+Shift+/` both yield `event.key === "/"`. The precise Cocoa path (`characters` vs `charactersIgnoringModifiers`, plus Chromium's ASCII-hotkey hack for command keys) is described in the Chromium OS X keyboard docs; the observable effect is that the Shift transformation is dropped for punctuation. The same class of bug is recorded against Firefox (Bugzilla 280805).
+| Keys pressed   | macOS | Windows  | ChromeOS |
+| -------------- | ----- | -------- | -------- |
+| `Shift+1`      | `!`   | `!`      | `!`      |
+| `Ctrl+Shift+1` | `1`†  | `!`      | `!`      |
+| `Meta+Shift+1` | `1`   | no event | n/a      |
+||||
+| `Shift+2`      | `@`   | `@`      | `@`      |
+| `Ctrl+Shift+2` | `@`†  | `@`      | `@`      |
+| `Meta+Shift+2` | `2`   | no event | n/a      |
+||||
+| `Shift+a`      | `A`   | `A`      | `A`      |
+| `Ctrl+Shift+a` | `A`‡  | `A`      | `A`      |
+| `Meta+Shift+a` | `a`‡  | no event | n/a      |
 
-### Why not just use a mapping `?` <-> `\` on MacOS?
+### † MacOS digit behavior 
+As above with `.`, on MacOS `Ctrl+Shift+1` and `Cmd+Shift+1` reports the base key `1` for the `event.key` whereas other platforms report `!`.
 
-**Layout variance.** On other keyboards layouts the `?` might not require a shift at all. Or it might be the shifted value of a different key (not `/`). 
+The macOS behavior is **not consistent** across every digit and punctuation key. `Ctrl+Shift+2` reports the **shifted key** `@` for the `event.key`.
 
-### What is going on with Alt/Option on MacOS?
+### ‡ MacOS letter behavior
+`Ctrl+Shift+[letter]` always returns the capital letter. `Cmd+Shift+[letter]` always return the lower case letter.
 
-**Alt/Option *composes* a different character on macOS.** `Option` is a character-composing modifier (like AltGr). `Option+Shift+/` on a US Mac produces `¿` (inverted question mark) — neither `?` nor `/`. So `event.key` is a *third* character.
+### Meta key on Windows
+The Windows key is reported as the Meta modifier. However `Meta(Windows)+Shift+[digit]` is captured by Windows to do its own shortcuts. `Meta(Windows)+Shift+a` doesn't fire an event or do anything in Windows that I could see.
 
-### Practical guidance for shortcuts
+## MacOS Chrome inconsistency of Ctrl+Shift
 
-- **Letters with `$mod`+Shift are safe** (`$mod+Shift+a`) thanks to case-insensitive matching.
-- **Modified Shift+punctuation is not portable by character.** You get to pick one:
-  - **Match by `event.code`** (e.g. `Slash`) — stable across OS and modifiers, but it is the key's *physical position*, so it ignores the actual typed character. This is hard to describe in user documentation.
-  - **Match by character with a per-platform definitions** — honors the typed character, but you maintain platform branches (e.g. `?` on Windows, `/` on Mac).
-- **`event.code` is the only primitive that's stable** across all three mechanisms above. The product requirement ("follow the typed character") and "works identically on every platform" are in genuine conflict for modified punctuation shortcuts.
+Generally digits and symbol keys report their base character on an English keyboard, but there are several exceptions. All letters report their shifted letter, so I'm going to skip those.
 
-### Across keyboard layouts
+| Base Key | Shifted | Ctrl+Shifted |
+| -------- | ------- | ------------ |
+| `` ` ``  | `~`     | `` ` ``      |
+| `1`      | `!`     | `1`          | 
+| `2`      | `@`     | `@`†         |
+| `3`      | `#`     | `3`          |
+| `4`      | `$`     | `4`          |
+| `5`      | `%`     | `5`          |
+| `6`      | `^`     | `^`†         |
+| `7`      | `&`     | `7`          |
+| `8`      | `*`     | `8`          |
+| `9`      | `(`     | `9`          |
+| `0`      | `)`     | `0`          |
+| `-`      | `_`     | `_`†         |
+| `=`      | `+`     | `=`          |
+| `[`      | `{`     | `{`†         |
+| `]`      | `}`     | `}`†         |
+| `\`      | `\|`    | `\|`†        |
+| `;`      | `:`     | `;`          |
+| `'`      | `"`     | `'`          |
+| `,`      | `<`     | `,`          |
+| `.`      | `>`     | `.`          |
+| `/`      | `?`     | `/`          |
 
-The implementation choice has consequences once the user isn't on US QWERTY:
+### † Inconsistent characters
 
-- **`event.code`** is the only stable identifier, but it names a *physical position* — the non-US **User-facing form** has to describe it as "the key where `/` is on a US QWERTY keyboard."
-- **By-character matching cannot reach every macOS layout for a symbol hotkey.** Because `Cmd` suppresses the Shift transformation, a user whose layout produces the symbol as a *shifted* character (over a different base) reports the base, not the symbol — so no `Cmd+<symbol>` binding fires for them. Concisely: **on macOS it isn't possible to define a symbol hotkey by character that works for every layout that has that symbol as a base or shifted key.** The "base or shifted" qualifier sidesteps AltGr-only layouts, which are a separate (and similarly difficult) case.
+For some reason on a US keyboard `2`, `6`, `-`, `[`, `]`, and `\` report their shifted character. 
 
-### Guidance
+## Why macOS reports the unshifted character
 
-For US Querty keyboards the guidance should be to just use event.code for matching the key. The user documentation can refer to the typed character on a US Querty keyboard. The documentation writer can do the mapping themselves from event.code (plus shift) to typed character.  This means we are not meeting the request of the product owner. 
+**`Cmd` is a macOS-level effect; `Ctrl` is Chrome-specific.** When **Command** is held, macOS's own `event.characters` already resolves to the key's **base** character, so `Cmd+Shift+.` yields `event.key === "."` in **all three browsers** (see the cross-browser table above). **Control** is different: Firefox and Safari still apply Shift (`Ctrl+Shift+.` → `>`), but **Chrome alone returns the base character** (`.`).
 
-If that product owner request can't be relaxed, then a lookup table can be used to map typed character to shifted or unshifted code. This lookup table will be US Querty Keyboard specific. So while it will make specification easier for authors, it is locking them into the US Querty Keyboards. This indirection will make supporting other keyboards confusing. The hot key will defined as the US Querty Keyboard typed character but the other keyboard user will need to figure out which physical key that is on their keyboard. For base keys this isn't too bad but for shifted keys you have figure out its unshifted value on a US Query Keyboard and then figure out which physical key that is.
+Chrome's behavior lives in Chromium's [`DomKeyFromNSEvent`](https://chromium.googlesource.com/chromium/src/+/refs/tags/130.0.6710.0/ui/events/keycodes/keyboard_code_conversion_mac.mm): it derives `event.key` from macOS's `event.characters`, and only when that isn't a usable character does its fallback recompute "with all modifier keys removed except for glyph modifier keys," where glyph modifiers are `Shift | CapsLock | Option` — **Control and Command both excluded**. For a printable punctuation combo like `Ctrl+Shift+.`, `event.characters` is already the base `.`, so the first path returns it and Shift is never re-applied. (This also explains why letters survive: `Ctrl+Shift+a` produces a non-printable control character, so the fallback kicks in *with* Shift and yields `A`. Punctuation gets bitten, letters don't.) The older Cocoa-level rationale — `characters` vs `charactersIgnoringModifiers`, plus the ASCII-hotkey hack — is in the [Chromium OS X keyboard docs](https://www.chromium.org/developers/os-x-keyboard-handling).
 
-Using this lookup table is preferred to trying to use the `event.key` value directly since that value isn't consistent across platforms.
+This was introduced deliberately in [crbug 586571](https://crbug.com/586571) (2016). The same `Cmd+Shift` behavior is tracked against the other two engines — Firefox ([Bugzilla 1627590](https://bugzilla.mozilla.org/show_bug.cgi?id=1627590)) and WebKit/Safari ([bug 174782](https://bugs.webkit.org/show_bug.cgi?id=174782)) — and as of this writing **both remain open and unfixed**. The Firefox engineer notes the macOS behavior is intentional and that Firefox "cannot change this behavior until Chromium does." So for `Cmd`/`Meta`+`Shift`, returning the base character is still consistent across Chrome, Firefox, and Safari on macOS — which is why Chromium closed its own report ([crbug 40683294](https://issues.chromium.org/issues/40683294)) as WontFix in 2022, deferring the question of what the spec *should* say to [w3c/uievents #169](https://github.com/w3c/uievents/issues/169) (open since 2017).
 
-## ARIA: `aria-keyshortcuts`
+**The `Ctrl` case is an active Chrome bug.** Because Chrome is the only one of the three browsers that drops Shift for `Ctrl+Shift+`*punctuation* (the `.` table above), it is the outlier there. This is tracked as [crbug 417631300](https://issues.chromium.org/issues/417631300) (P2, active, 2025: `Ctrl+Shift+=` → `=` on macOS Chrome, not reproducible on Windows/Linux); the reporter's note that Firefox and Safari return `+` lines up with the cross-browser table above. This is separate from the `Cmd` case, where all three browsers agree on the base character.
 
-This is the second rendering of the **User-facing form** (the visible label is the other), aimed at assistive technology. Its authoring rule is the **opposite** of "follow the typed character" — it documents the keys the user actually presses, not the character that results.
-
-### What it does (and doesn't)
-
-`aria-keyshortcuts` is **declarative metadata only**. Per the spec, "it has no effect on the functionality of the page; the keyboard behavior must be added via JavaScript event handlers." Its job is to tell assistive technology that a shortcut exists so it can be announced to AT users. Everything in the tables and guidance above still applies — you wire up the handler with tinykeys (or whatever); `aria-keyshortcuts` just describes it.
-
-### Syntax
-
-- **Modifier names** (case-insensitive): `Alt`, `Control`, `Shift`, `Meta` (= Cmd on Mac), `AltGraph` (= Option on Mac).
-- **Joined with `+`**, modifiers first, exactly **one** non-modifier key last. The literal `+` key is spelled `Plus` (because `+` is the chord delimiter).
-- **Non-modifier key**: either a printable character (`A`, `z`, `.`, `$`) **or** a named key from the [UI Events Key Values registry](https://www.w3.org/TR/uievents-key/#named-key-attribute-values) — e.g. `Enter`, `Tab`, `Backspace`, `Delete`, `Escape`, `Home`, `End`, `PageUp`, `PageDown`, `ArrowUp`/`ArrowDown`/`ArrowLeft`/`ArrowRight`, `F1`–`F24`. These are **`KeyboardEvent.key` values, not `event.code` values** — so the `/` key is `"/"`, not `"Slash"`.
-- **`Space` is an explicit spec exception.** The real key value is a literal `' '`, which would be parsed as the delimiter between shortcuts — so the spec requires spelling it `Space`.
-- **Alphabetic keys are case-insensitive**: `"a"` and `"A"` are equivalent, per spec.
-- **Multiple shortcuts**: space-separated, e.g. `aria-keyshortcuts="Alt+Shift+P Control+F"`.
-- **HTML escaping**: if a key character would break HTML attribute parsing, use the entity form — e.g. a shortcut on the `'`/`"` key for `"` is `Shift+'`, written as `Shift+&#39;` in the attribute (the spec's own example).
-- Applies to all roles; also exposed as `element.ariaKeyShortcuts`.
-
-### The "keys pressed, not the character" rule
-
-The spec is explicit:
-
-> The key combination listed must be the keys the user needs to press, not the outcome of the combined key strokes. For example, on a USA keyboard, if you need the `@` symbol, the key combination is written as `"Shift+2"`, not `"@"` nor `"Shift+@"`.
-
-So for a US-keyboard `?` shortcut, the correct value is **`Shift+/`**, not `?`. This aligns with the `event.code` recommendation in the Guidance above — both describe the keystroke rather than its character output — though `aria-keyshortcuts` uses keycap labels (`Shift+/`) while `event.code` uses physical-key identifiers (`Slash`). The spec also warns authors to "take into account the diversity of available keyboards," i.e., it punts the layout problem back to you.
-
-### Cross-platform
-
-No `$mod`-style abstraction. Either declare both forms or detect platform:
-
-```html
-<button aria-keyshortcuts="Control+S Meta+S">Save</button>
-```
-
-`AltGraph` is the right token for Mac's Option as a character-composer (e.g. `Option+Shift+/` → `¿`); `Alt` is the plain modifier. Whether AT usefully distinguishes them varies.
-
-### Caveats
-
-- **AT support is variable.** Stable in the spec since ARIA 1.1, but don't assume every screen reader announces it. The spec also recommends surfacing shortcuts visibly in menus/tooltips.
-- **Don't shadow AT/OS/browser shortcuts** — doing so can lock AT users out.
-- **Disabled elements**: gate the JS handler too; the attribute alone doesn't.
-
-### Concrete example
-
-If your handler fires on `?` typed on a US keyboard:
-
-```html
-<button aria-keyshortcuts="Shift+/">Help</button>
-```
-
-Not `aria-keyshortcuts="?"`.
+> **Caution — the proposed fix doesn't distinguish `Ctrl` from `Cmd`.** As of patchset 2, the pending patch ([Gerrit 7538394](https://chromium-review.googlesource.com/c/chromium/src/+/7538394)) adds `kNonGlyphModifiers = NSEventModifierFlagControl | NSEventModifierFlagCommand` and, when *either* is held, recomputes `event.key` from the glyph modifiers (Shift/CapsLock/Option) only — returning the **shifted** character and returning before the `event.characters` path. As written, that also changes `Cmd+Shift` (e.g. `Cmd+Shift+.` → `>`, `Cmd+Shift+a` → `A`), which would make Chrome **diverge** from Firefox and Safari for the `Cmd` case (they return the base character) and silently reverse the 2022 WontFix in [crbug 40683294](https://issues.chromium.org/issues/40683294) — the opposite of the CL's stated goal of aligning with Firefox and Safari. Note that [crbug 40683294](https://issues.chromium.org/issues/40683294) itself got the distinction right ("this problem does not exist with Control"); the 2025 fix lost it.
 
 ## How to reproduce
 
@@ -172,18 +166,28 @@ Or paste this into any page's console / an HTML file and watch the output:
 
 Note: some combos (e.g. `Cmd+Shift+3/4` on macOS, `Ctrl+Shift+T/N` on Windows) are intercepted by the OS/browser and may never reach the page — that's interception, not an `event.key` difference.
 
+## TODO
+- comment on https://github.com/w3c/uievents/issues/169: it seems that https://github.com/w3c/uievents/issues/169#issuecomment-343884048 contradicts itself. The native key event's character is not always the shifted value of the character.
+- comment on https://issues.chromium.org/issues/417631300: this does not identify the current difference between Ctrl and Cmd on Safari and Firefox. The proposed fix: https://chromium-review.googlesource.com/c/chromium/src/+/7538394 claims to bring Chrome in line with the other browsers but it doesn't fully. And I think it actually shouldn't. The proposed fix is doing what I think should be done. It allows a user to define a Ctrl and Meta(Cmd) hot key based on an actual character value regardless where the character is on the user's keyboard.
+
 ## References
 
-- [tinykeys source (v4) — matcher uses `event.key`/`event.code`](https://unpkg.com/tinykeys@4.0.0/dist/tinykeys.mjs)
+- [tinykeys source (v4) — matcher uses `event.key`/`event.code`](https://github.com/jamiebuilds/tinykeys/blob/v4.0.0/src/tinykeys.ts)
 - [MDN — `KeyboardEvent.key`](https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/key)
 - [MDN — Key values for keyboard events](https://developer.mozilla.org/en-US/docs/Web/API/UI_Events/Keyboard_event_key_values)
 - [Chromium — OS X keyboard handling](https://www.chromium.org/developers/os-x-keyboard-handling)
 - [Chromium — About Mac Hotkeys and Virtual Keycodes](https://chromium.googlesource.com/chromium/src/+/refs/tags/130.0.6710.0/docs/mac/about_hotkeys_and_keycodes.md)
 - [Bugzilla 280805 — keypress generates unshifted charcode for Cmd+Shift combos](https://bugzilla.mozilla.org/show_bug.cgi?id=280805)
+- [Bugzilla 1627590 — KeyboardEvent.key returns the unshifted value for Cmd+Shift+letter on Mac](https://bugzilla.mozilla.org/show_bug.cgi?id=1627590) — Firefox's tracking bug for the same behavior (filed 2020); **still open/NEW (P5)**. The Firefox engineer calls the macOS behavior intentional and says Firefox can't change it "until Chromium does." Notes that `Ctrl+Shift+L` returns `L` in Firefox while `Cmd+Shift+L` returns `l`.
+- [WebKit bug 174782 — `event.key` reports lowercase letter with Shift+Cmd](https://bugs.webkit.org/show_bug.cgi?id=174782) — Safari's version (filed 2017); **still open/NEW**.
+- [Chromium issue 40683294 — KeyboardEvent.key holds the wrong value for Command-Shift-modified printable keys](https://issues.chromium.org/issues/40683294) — filed 2020; closed 2022 as WontFix because at the time Firefox and Safari also had the bug and Chromium treated it as consistent cross-browser behavior. Deferred to the spec discussion at w3c/uievents #169.
+- [Chromium issue 417631300 — Ctrl+Shift+`=` (`+`) emits wrong value of KeyboardEvent.key on macOS](https://issues.chromium.org/issues/417631300) — filed 2025, P2 active bug with a pending fix. Triage confirmed it reproduces only on macOS Chrome (not Windows/Linux). The reporter's note that Firefox and Safari return `+` for this `Ctrl` combo matches the cross-browser `.` table above (Chrome is the outlier for `Ctrl+Shift`; `Cmd+Shift` is base on all three).
+- [Chromium issue 586571 — produce correct DomKey (`event.key`) when Ctrl/Shift/Command is down on Mac](https://crbug.com/586571) ([implementation CL 1706683002](https://codereview.chromium.org/1706683002/)) — the 2016 Chromium CL that *deliberately* introduced this behavior on Mac; claimed to align Mac with Chrome's other platforms, but the tables above show it still diverges for punctuation.
+- [Chromium source — `DomKeyFromNSEvent` in `keyboard_code_conversion_mac.mm` (tag 130.0.6710.0)](https://chromium.googlesource.com/chromium/src/+/refs/tags/130.0.6710.0/ui/events/keycodes/keyboard_code_conversion_mac.mm) — the function that computes `event.key` on Mac. It derives the value from macOS's own `event.characters` (already the base glyph for command-type combos); its fallback step removes "all modifier keys … except for glyph modifier keys," where `kGlyphModifiers = NSEventModifierFlagShift | NSEventModifierFlagCapsLock | NSEventModifierFlagOption` — Control and Command are excluded, so they can never re-apply Shift to punctuation.
+- [w3c/uievents #169 — Bug in spec? event.key and casing](https://github.com/w3c/uievents/issues/169) — open spec discussion (since 2017) on whether `event.key` should return the shifted character when Cmd/Ctrl is held; Chromium closed issue 40683294 deferring to this thread.
 - [w3c/uievents #147 — AltGraph reported as Ctrl+Alt on Windows](https://github.com/w3c/uievents/issues/147)
 - [OSXDaily — Option+Shift+/ → ¿ on US Mac](https://osxdaily.com/2022/04/27/type-inverted-question-mark-mac/)
-- [MDN — `aria-keyshortcuts`](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Reference/Attributes/aria-keyshortcuts)
-- [WAI-ARIA 1.2 — `aria-keyshortcuts`](https://www.w3.org/TR/wai-aria-1.2/#aria-keyshortcuts)
+- [github/hotkey #54 — `eventToHotkeyString` inconsistent Shift behaviour on Mac](https://github.com/github/hotkey/issues/54) — a real-world library bug caused by exactly this: on Mac the handler receives the base character plus `shiftKey`, so `?`/`!` get mis-rendered.
 
 ---
-_Last updated: 2026-05-29_
+_Last updated: 2026-05-31_

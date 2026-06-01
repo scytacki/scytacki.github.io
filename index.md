@@ -8,4 +8,5 @@ Reference notes on web development, accessibility, and related topics. Suggestio
 
 ## Notes
 
-- [`KeyboardEvent.key` with Shift + modifiers across platforms (US keyboards)](./keyboardevent-shift-modifiers-us/) — how `event.key` behaves when Shift is combined with Cmd/Ctrl/Alt across macOS, Windows, and ChromeOS, and what this means for keyboard-shortcut libraries.
+- [`KeyboardEvent.key` with Shift + modifiers across platforms (US keyboards)](./keyboardevent-shift-modifiers-us/) — reference tables for how `event.key` behaves when Shift is combined with Cmd/Ctrl/Alt across macOS, Windows, and ChromeOS, plus how to reproduce them.
+- [Working with keyboard shortcuts in browsers: cross-platform pitfalls](./keyboard-shortcuts-cross-platform/) — what that per-platform behavior means in practice: why matching on the typed character is unreliable, what to do instead, and how it maps to `aria-keyshortcuts`.
