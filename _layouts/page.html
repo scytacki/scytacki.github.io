@@ -1,0 +1,32 @@
+---
+layout: default
+---
+<article class="post">
+
+  <header class="post-header">
+    <h1 class="post-title">{{ page.title | escape }}</h1>
+  </header>
+
+  <div class="post-content">
+    {{ content }}
+  </div>
+
+</article>
+
+{%- comment -%}
+  Cross-links to the other notes, for visitors who land directly on a note.
+  Shown on note pages only — the home page (/) already lists them all.
+{%- endcomment -%}
+{%- if page.url != "/" -%}
+  {%- assign titled_pages = site.pages | where_exp: "p", "p.title" -%}
+  <nav class="other-notes" aria-label="Other notes">
+    <h2>Other notes</h2>
+    <ul>
+      {%- for p in titled_pages -%}
+        {%- unless p.url == "/" or p.url == page.url -%}
+      <li><a href="{{ p.url | relative_url }}">{{ p.title | escape }}</a></li>
+        {%- endunless -%}
+      {%- endfor -%}
+    </ul>
+  </nav>
+{%- endif -%}
