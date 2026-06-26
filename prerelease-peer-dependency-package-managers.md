@@ -132,6 +132,33 @@ Berry's default linker is **Plug'n'Play** (no `node_modules`; a `.pnp.cjs` resol
 
 A tempting "fix" is to loosen `plugin`'s peer to `>=3.0.0-0`, on the theory that the `-0` admits prereleases. **It does not generalize.** Under the semver prerelease rule, the `-0` only opens prereleases that share the comparator's exact `[major, minor, patch]` — i.e. `>=3.0.0-0` admits `3.0.0-pre.x` but still **excludes `3.5.0-pre.0`** (tuple `[3,5,0] ≠ [3,0,0]`). There is no dependency-range syntax meaning "allow any prerelease of any version"; that requires semver's `includePrerelease` *option*, which a `package.json` range can't express. So loosening the peer range is a dead end — the levers are the per-consumer settings above, or publishing a non-prerelease version (which satisfies the range and makes the whole problem disappear).
 
+## Shipping a prerelease temporarily with npm `legacy-peer-deps`, then cleaning up
+
+npm needs the most care of the three here. `legacy-peer-deps` (introduced above) is the lightest way to get the prerelease into a shipped build — through CI and manual QA — before the library's production release, but it has to be unwound carefully: it leaves the lockfile in a shape that doesn't clean itself up incrementally. (Yarn and pnpm need none of this; they reconcile against `package.json` on every install, so a version bump is the whole story.)
+
+### Adopting it
+
+1. Set `engine` to the prerelease in every package that declares it (in a monorepo, that means *all* of them — see the caveat below), then add `.npmrc` with `legacy-peer-deps=true` and run `npm install`. This stops npm from auto-installing the second stable copy, so you get a single prerelease copy.
+2. **Commit the resulting `package-lock.json`.** You do **not** need to commit `.npmrc` for CI's sake (see next point).
+
+**`npm ci` does not need the flag.** `npm ci` *reproduces* the locked tree and does not re-resolve dependencies, so it installs the single prerelease copy faithfully whether or not `legacy-peer-deps` is set. The flag only affects *resolution* (`npm install`), not *reproduction* (`npm ci`). Practical consequence: run the flag **locally** to generate the lockfile, commit the lockfile, and CI works flagless. (Commit `.npmrc` only if you also want developers' plain `npm install` to stay deduped — without it, a developer's `npm install` re-resolves and re-introduces the duplicate.)
+
+**Caveat — `legacy-peer-deps` only suppresses the *peer-driven* copy.** It stops npm from auto-installing a copy to satisfy `plugin`'s peer, but it does nothing about packages that *directly* depend on the old stable version. In a monorepo where many packages directly pin `engine@3.4.0`, those direct pins keep their own copies; you must bump them to the prerelease too for the tree to collapse to one copy. The flag is necessary but not sufficient.
+
+### Cleaning up when the production version ships — the wrong way
+
+Once `engine@3.5.0` is released (it satisfies `>=3.0.0`, so no flag is needed anymore), the tempting move is to bump versions, delete `.npmrc`, and run a normal `npm install` **on top of the existing lockfile**. This leaves **cruft — and not just cosmetic cruft.** Because npm reuses the resolutions already locked, the **prerelease stays in the hoisted slot** (now re-flagged as a `"peer"` resolution), and every package that wants the production version gets its **own nested copy** beside it. You end up with *two* versions again — exactly the duplication you were avoiding — which can re-trip a singleton guard. An incremental revert is actively unsafe.
+
+### Cleaning up — two ways that work
+
+Both force npm to resolve from a base that contains **no prerelease**, so nothing stale is carried forward:
+
+1. **From-scratch regeneration.** Set the production version everywhere, delete `package-lock.json` (and `node_modules`), and `npm install` **without** the flag. Because the production version satisfies the peer, you get a single clean copy and no flag is needed. Downside: it regenerates the *entire* lockfile, which can churn unrelated transitive dependencies.
+
+2. **Restore-the-base, then install forward.** Restore `package-lock.json` to its **pre-prerelease commit** (the known-good state from before you adopted the prerelease), set the production version in `package.json`, and run a normal `npm install` (no flag) on top of that restored lockfile. Since the restored base has the *stable* version in the hoisted slot — no prerelease resolution to reuse — npm reconciles cleanly to the production version and dedupes to a single copy. In my testing this produced a lockfile **identical to a fresh resolve**, with far less churn than option 1 because you start from the committed known-good base rather than recomputing everything.
+
+The throughline: npm's `npm install` *reuses* an existing lockfile's resolutions, which is what makes both the incremental revert messy and the restore-the-base cleanup work. `npm ci` *reproduces* the lockfile, which is why CI never needs the flag.
+
 ## Summary matrix
 
 | Manager | Default copies | Knob for one copy | Applies on normal install? | Notes |
